@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>尋寶遊戲</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      font-family: sans-serif;
+      padding: 1rem;
+    }
+    input, button {
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      background: #222;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 5px;
+    }
+    canvas {
+      margin: 5px;
+    }
+    video {
+      width: 100%;
+      max-width: 400px;
+      margin-top: 1rem;
+      border: 2px solid white;
+    }
+    #status, #timer {
+      margin-top: 1rem;
+      font-size: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>📍 尋寶遊戲</h1>
+
+  <label for="pointCount">請輸入總點數：</label><br>
+  <input type="number" id="pointCount" min="1" />
+  <button onclick="generateQRCodes()">生成 QR Code</button>
+
+  <div id="qrcodes"></div>
+
+  <button onclick="startGame()">🚀 開始遊戲</button>
+
+  <div id="scanner" style="display:none;">
+    <button onclick="scanQRCode()">📷 掃描下一個 QR Code</button>
+    <video id="video" playsinline></video>
+    <div id="status"></div>
+    <div id="timer">⏱️ 時間：0 秒</div>
+  </div>
+
+  <script>
+    const codes = [];
+    let currentIndex = 0;
+    let reader;
+    let timerInterval;
+    let startTime;
+
+    function generateQRCodes() {
+      const count = parseInt(document.getElementById('pointCount').value);
+      if (isNaN(count) || count < 1) {
+        alert("請輸入有效的點數");
+        return;
+      }
+
+      codes.length = 0;
+      const container = document.getElementById('qrcodes');
+      container.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const code = `POINT-${i + 1}`;
+        codes.push(code);
+        const canvas = document.createElement('canvas');
+        QRCode.toCanvas(canvas, code, { width: 120, color: { dark: "#000", light: "#fff" } });
+        container.appendChild(canvas);
+      }
+
+      document.getElementById('status').textContent = '';
+      document.getElementById('timer').textContent = '⏱️ 時間：0 秒';
+      currentIndex = 0;
+    }
+
+    function startGame() {
+      if (codes.length === 0) {
+        alert("請先生成 QR Code！");
+        return;
+      }
+
+      document.getElementById('scanner').style.display = 'block';
+      currentIndex = 0;
+      startTime = Date.now();
+
+      document.getElementById('status').textContent = '請掃描點 1';
+
+      timerInterval = setInterval(() => {
+        const seconds = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById('timer').textContent = `⏱️ 時間：${seconds} 秒`;
+      }, 1000);
+    }
+
+    function scanQRCode() {
+      const selectedDeviceId = null;
+      const codeReader = new ZXing.BrowserMultiFormatReader();
+      const videoElement = document.getElementById('video');
+
+      codeReader.decodeOnceFromVideoDevice(selectedDeviceId, videoElement)
+        .then((result) => {
+          const scanned = result.text;
+          if (scanned === codes[currentIndex]) {
+            currentIndex++;
+            if (currentIndex === codes.length) {
+              document.getElementById('status').textContent = '🎉 全部正確！任務完成！';
+              clearInterval(timerInterval);
+            } else {
+              document.getElementById('status').textContent = `✅ 正確，請掃描點 ${currentIndex + 1}`;
+            }
+          } else {
+            document.getElementById('status').textContent = `❌ 錯誤，請掃描點 ${currentIndex + 1}`;
+          }
+
+          // 關閉鏡頭
+          const tracks = videoElement.srcObject?.getTracks();
+          if (tracks) tracks.forEach(track => track.stop());
+          videoElement.srcObject = null;
+        })
+        .catch((err) => {
+          console.error(err);
+          alert("掃描失敗或未授權相機");
+        });
+    }
+  </script>
+</body>
+</html>
